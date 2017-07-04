@@ -130,7 +130,8 @@ def calc_outstanding_purchases_with_amount(user, amount):
     if len(purchase_list) > 0:
         data_mean = calc_mean(purchase_list[user])
         data_SD = calc_SD(purchase_list[user], data_mean)
-        
+        if data_SD == -1:
+            return -1
         if amount > data_mean + data_SD * 3:
             return [amount, data_mean, data_SD]
     return -1
@@ -140,7 +141,8 @@ def calc_outstanding_purchases(user):
     if len(purchase_list) > 0:
         data_mean = calc_mean(purchase_list[user])
         data_SD = calc_SD(purchase_list[user], data_mean)
-
+        if data_SD == -1:
+            return -1
         for entry in purchase_list:
             if entry > data_mean + data_SD * 3:
                 return [entry, data_mean, data_SD]
@@ -160,6 +162,8 @@ def calc_SD(data, mean):
     for entry in data:
         my_sum += (entry - mean) * (entry - mean)
         my_cntr += 1
+    if cntr < 3:
+        return -1
     return math.sqrt(my_sum / my_cntr)
 
 
