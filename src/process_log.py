@@ -31,7 +31,6 @@
 import json
 import sys
 import math
-import time
 from collections import OrderedDict
 
 # Calculate mean
