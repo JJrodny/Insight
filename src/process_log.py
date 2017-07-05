@@ -66,7 +66,7 @@ with open(sys.argv[1]) as json_in_file:
 
 for entry in data_batch:
     if 'event_type' in entry:
-        if entry['event_type'] == 'purchase': ## equivalent lines: "entry['event_type']" and "entry.get('event_type')" 
+        if entry['event_type'] == 'purchase': ## equivalent lines: "entry['event_type']" and "entry.get('event_type')" but direct is faster
             data_batch_P.append(entry)
         elif entry['event_type'] == 'befriend':
             data_batch_F.append(entry)
@@ -97,7 +97,7 @@ for entry in data_batch_F:
         # add them to the dictionary
         dict_user_to_friend[id1].append(id2)
         dict_user_to_friend[id2].append(id1)
-    if entry['event_type'] == 'unfriend':
+    elif entry['event_type'] == 'unfriend':
         # remove them from the dictionary
         try:
             dict_user_to_friend[id1].remove(id2)
@@ -212,11 +212,14 @@ print ('')
 # from: https://stackoverflow.com/questions/12654772/create-empty-file-using-python
 open(sys.argv[3], 'w').close()
 
-def read_in_purchases_and_check_for_anomolies(data):
-    global dict_friend_group_purchase_history
-    global dict_user_to_friend_group
-    global dict_user_to_friend
-    for entry in data:
+# Read in the Stream JSON file
+data_stream_P = []
+data_stream_L1 = {}
+data_stream_F = []
+data_stream = []
+with open(sys.argv[2]) as json_in_file:
+    for line in json_in_file:
+        entry = json.loads(line)
         if entry['event_type'] == 'purchase':
             user = int(entry['id'])
             amount = float(entry['amount'])
@@ -261,19 +264,8 @@ def read_in_purchases_and_check_for_anomolies(data):
             update_friend_groups()
 
     print (dict_friend_group_purchase_history)
-
-
-
-# Read in the Stream JSON file
-data_stream_P = []
-data_stream_L1 = {}
-data_stream_F = []
-data_stream = []
-with open(sys.argv[2]) as json_in_file:
-    for entry in json_in_file:
-        data_stream.append(json.loads(entry))
-
-read_in_purchases_and_check_for_anomolies(data_stream)
+        
+##read_in_purchases_and_check_for_anomolies(data_stream)
 
 ##
 ##purchase_list = {}

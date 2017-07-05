@@ -11,6 +11,17 @@
 #   friend are taken into account, just the new purchases that the new friend makes (This is for speed
 #   and convenience). It can be made so when a friend is made we retroactively go back and look through
 #   the new friends' old purchases but they are ignored for speed
+# ASSUMES User A's social network includes user A:
+#   There is a contradiction in the document specification:
+#       "T: the number of consecutive purchases made by a user's social network (not including the user's own purchases)"
+#       "For example, if D = 1, User A's social network would only consist of User B and User C"
+#       "If D = 2, User A's social network would consist of User B, User C, and User D."
+#       "A purchase amount is anomalous if it's more than 3 standard deviations from the mean of the last T purchases in the user's Dth degree social network."
+#   Which implies:
+#   1. User A's social network does not include user A
+#   2. The average of User A's social network purchases doesn't include user A's purchases
+#   3. However, the example answer assumes user A's purchases ARE included in user A's social network purchases
+#      or when user B makes a large purchase it IS included in user B's social network purchases (in other words B is in B's social network)
 #
 ###
 
@@ -55,7 +66,7 @@ with open(sys.argv[1]) as json_in_file:
 
 for entry in data_batch:
     if 'event_type' in entry:
-        if entry['event_type'] == 'purchase': ## equivalent lines: "entry['event_type']" and "entry.get('event_type')" 
+        if entry['event_type'] == 'purchase': ## equivalent lines: "entry['event_type']" and "entry.get('event_type')" but direct is faster
             data_batch_P.append(entry)
         elif entry['event_type'] == 'befriend':
             data_batch_F.append(entry)
@@ -72,21 +83,21 @@ CONST_D = int(data_batch_L1['D'])
 
 # Create matrix where index is userID, and at each index is a linked list of 1st degree friends
 dict_user_to_friend = {}
-# initialize matrix to be used and explained below (Create a matrix where index is userID, and each index is a linked list of purchases)
-dict_user_to_purchase = {}
+### initialize matrix to be used and explained below (Create a matrix where index is userID, and each index is a linked list of purchases)
+##dict_user_to_purchase = {}
 for entry in data_batch_F:
     id1 = int(entry['id1'])
     id2 = int(entry['id2'])
     if entry['event_type'] == 'befriend':
         # make sure the users exist
-        dict_user_to_friend.setdefault(id1,[])
-        dict_user_to_friend.setdefault(id2,[])
-        dict_user_to_purchase.setdefault(id1,[])
-        dict_user_to_purchase.setdefault(id2,[])
+        dict_user_to_friend.setdefault(id1,[id1])
+        dict_user_to_friend.setdefault(id2,[id2])
+##        dict_user_to_purchase.setdefault(id1,[])
+##        dict_user_to_purchase.setdefault(id2,[])
         # add them to the dictionary
         dict_user_to_friend[id1].append(id2)
         dict_user_to_friend[id2].append(id1)
-    if entry['event_type'] == 'unfriend':
+    elif entry['event_type'] == 'unfriend':
         # remove them from the dictionary
         try:
             dict_user_to_friend[id1].remove(id2)
@@ -147,7 +158,8 @@ def update_friend_groups():
     for user in dict_user_to_friend.iterkeys():
         dict_user_to_friend_group.setdefault(user,[])
         friend_list = get_friends(user)
-        visited_users = [user]
+##        visited_users = [user]
+        visited_users = []
         curDegree = 1
         # create a friends group, go while there are still friends to explore
         while len(friend_list) > 0:
@@ -200,22 +212,24 @@ print ('')
 # from: https://stackoverflow.com/questions/12654772/create-empty-file-using-python
 open(sys.argv[3], 'w').close()
 
-def read_in_purchases_and_check_for_anomolies(data):
-    global dict_friend_group_purchase_history
-    global dict_user_to_friend_group
-    global dict_user_to_friend
-    for entry in data:
+# Read in the Stream JSON file
+data_stream_P = []
+data_stream_L1 = {}
+data_stream_F = []
+data_stream = []
+with open(sys.argv[2]) as json_in_file:
+    for line in json_in_file:
+        entry = json.loads(line)
         if entry['event_type'] == 'purchase':
             user = int(entry['id'])
             amount = float(entry['amount'])
             # for each friend of that user that just purchased, go through the friends in their friend group
             for friend in dict_user_to_friend_group[user]:
-                print (id1, friend, user, id1)
                 dict_friend_group_purchase_history.setdefault(friend,[])
 
                 # get that friend's purchase history and calc the mean and SD
                 tmpList = dict_friend_group_purchase_history[friend]
-                
+                print (tmpList)
                 if len(tmpList) > 0:
                     data_mean = calc_mean(tmpList)
                     data_SD = calc_SD(tmpList, data_mean)
@@ -250,19 +264,8 @@ def read_in_purchases_and_check_for_anomolies(data):
             update_friend_groups()
 
     print (dict_friend_group_purchase_history)
-
-
-
-# Read in the Stream JSON file
-data_stream_P = []
-data_stream_L1 = {}
-data_stream_F = []
-data_stream = []
-with open(sys.argv[2]) as json_in_file:
-    for entry in json_in_file:
-        data_stream.append(json.loads(entry))
-
-read_in_purchases_and_check_for_anomolies(data_stream)
+        
+##read_in_purchases_and_check_for_anomolies(data_stream)
 
 ##
 ##purchase_list = {}
