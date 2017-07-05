@@ -12,7 +12,7 @@
 #   and convenience). It can be made so when a friend is made we retroactively go back and look through
 #   the new friends' old purchases but they are ignored for speed
 # ASSUMES User A's social network includes user A:
-#   There is a contradiction in the document specification:
+#   There is a contradiction (or clarification is needed) in the document specification:
 #       "T: the number of consecutive purchases made by a user's social network (not including the user's own purchases)"
 #       "For example, if D = 1, User A's social network would only consist of User B and User C"
 #       "If D = 2, User A's social network would consist of User B, User C, and User D."
@@ -20,9 +20,12 @@
 #   Which implies:
 #   1. User A's social network does not include user A
 #   2. The average of User A's social network purchases doesn't include user A's purchases
-#   3. However, the example answer assumes user A's purchases ARE included in user A's social network purchases
-#      or when user B makes a large purchase it IS included in user B's social network purchases (in other words B is in B's social network)
+#   3. However, the example answer assumes user A's purchases ARE included in user A's social network purchases when B makes a large purchase,
+#      or when user B makes a large purchase that purchase IS included in user B's social network purchases (in other words B is in B's social network)
 #
+#   4. OR it could be, that it's meant that B's purchases are not included in B's social-network-purchase-average,
+#       but when B makes a purchase, it could be that we still check if it's purchase is an anomoly
+#       in its own social network before recording it and removing it from B's social-network-purchase-average
 ###
 
 import json
@@ -55,77 +58,56 @@ def calc_SD(data, mean):
 # Read in the Batch JSON file
 # from: https://stackoverflow.com/questions/12451431/loading-and-parsing-a-json-file-with-multiple-json-objects-in-python
 data_batch_P = [] ## list of dictionaries
-data_batch_L1 = {} ## dictionary
-data_batch_F = [] ## list of dictionaries
-data_batch = [] ## list of dictionaries
+##data_batch_L1 = {} ## dictionary
+##data_batch_F = [] ## list of dictionaries
+##data_batch = [] ## list of dictionaries
+
+# Create a dictionary where key is userID, and each value is a linked list of 1st degree friends
+dict_user_to_friend = {}
 with open(sys.argv[1]) as json_in_file:
     for line in json_in_file:
-        data_batch.append(json.loads(line))
+        entry = json.loads(line)
+##        print (entry)
         
-##print (data_batch)
-
-for entry in data_batch:
-    if 'event_type' in entry:
-        if entry['event_type'] == 'purchase': ## equivalent lines: "entry['event_type']" and "entry.get('event_type')" but direct is faster
-            data_batch_P.append(entry)
+        # save D and T values
+        if 'T' in entry:
+            CONST_T = int(entry['T'])
+            CONST_D = int(entry['D'])
+        # Populate that dictionary where key is userID, and each value is a linked list of 1st degree friends
         elif entry['event_type'] == 'befriend':
-            data_batch_F.append(entry)
+            id1 = int(entry['id1'])
+            id2 = int(entry['id2'])
+            # make sure the users exist
+            dict_user_to_friend.setdefault(id1,[])
+            dict_user_to_friend.setdefault(id2,[])
+##            dict_user_to_friend.setdefault(id1,[id1])
+##            dict_user_to_friend.setdefault(id2,[id2])
+            # add them to the dictionary
+            dict_user_to_friend[id1].append(id2)
+            dict_user_to_friend[id2].append(id1)
+            
+        # remove the friendships that you read in with 'unfriend'
         elif entry['event_type'] == 'unfriend':
-            data_batch_F.append(entry)
-    elif 'T' in entry:
-        data_batch_L1.update(entry)
+            id1 = int(entry['id1'])
+            id2 = int(entry['id2'])
+            # remove them from the dictionary
+            try:
+                dict_user_to_friend[id1].remove(id2)
+                dict_user_to_friend[id2].remove(id1)
+            except:
+                print ('Dangnabbit! Yer Batch file tried to remove a user not in the database! (process_log.py line ~90)')
 
-        
-# save D and T values
-CONST_T = int(data_batch_L1['T']) ## equivalent lines: .get('T') and ['T']
-CONST_D = int(data_batch_L1['D'])
+        # save purchases for later (need a built up dict_user_to_friend first)
+        elif entry['event_type'] == 'purchase':
+            data_batch_P.append(entry)
+            
 
-
-# Create matrix where index is userID, and at each index is a linked list of 1st degree friends
-dict_user_to_friend = {}
-### initialize matrix to be used and explained below (Create a matrix where index is userID, and each index is a linked list of purchases)
-##dict_user_to_purchase = {}
-for entry in data_batch_F:
-    id1 = int(entry['id1'])
-    id2 = int(entry['id2'])
-    if entry['event_type'] == 'befriend':
-        # make sure the users exist
-        dict_user_to_friend.setdefault(id1,[id1])
-        dict_user_to_friend.setdefault(id2,[id2])
-##        dict_user_to_purchase.setdefault(id1,[])
-##        dict_user_to_purchase.setdefault(id2,[])
-        # add them to the dictionary
-        dict_user_to_friend[id1].append(id2)
-        dict_user_to_friend[id2].append(id1)
-    elif entry['event_type'] == 'unfriend':
-        # remove them from the dictionary
-        try:
-            dict_user_to_friend[id1].remove(id2)
-            dict_user_to_friend[id2].remove(id1)
-        except:
-            print ('Dangnabbit! Yer Batch file tried to remove a user not in the database! (process_log.py line ~90)')
 
 print ('dict_user_to_friend', dict_user_to_friend)
 
 # get the friends of a user - unnecessary but looks nice
 def get_friends(userID):
     return list(dict_user_to_friend[userID])
-
-
-### Create a matrix where index is userID, and each index is a linked list of purchases
-##for entry in data_batch_P:
-##    id1 = int(entry['id'])
-##    dict_user_to_purchase.setdefault(id1,[])
-##    dict_user_to_friend.setdefault(id1,[])
-##    dict_user_to_purchase[id1] = {}
-##    print (time.strptime(entry['timestamp'],"%Y-%m-%d %H:%M:%S"))
-##    dict_user_to_purchase[id1][time.strptime(entry['timestamp'],"%Y-%m-%d %H:%M:%S")].append(float(entry['amount']))
-    
-
-
-### get the purchases of a user - unnecessary but looks nice
-##def get_purchases(userID):
-##    return dict_user_to_purchase[userID][:][-CONST_T:]
 
 ######
 ###
@@ -149,8 +131,12 @@ dict_friend_to_user_group = {} # This is a dictionary of the friend groups as we
                                 # now, given a user (key) the values are each of the groups that that user is in
                                 
 # IT IS IMPORTANT TO NOTE: These two dictionaries will be the same (because friendships go both ways)
-dict_friend_to_user_group = dict_user_to_friend_group # (assignment done symbolically here - doesn't do anything)
+# dict_friend_to_user_group = dict_user_to_friend_group # (assignment done symbolically here - doesn't do anything)
 
+# update friend groups - populate dict_user_to_friend_group
+#   this is like the previous dict_user_to_friend, but instead of Key:User, Value:1st degree friends
+#   it is Key:User, Value:Dth degree friends, and this code is called multiple times (when a befriend
+#   or unfriend is read in stream)
 def update_friend_groups():
     global dict_user_to_friend
     global dict_user_to_friend_group
@@ -183,30 +169,25 @@ def update_friend_groups():
 update_friend_groups()
 
 print ('')
-print (dict_user_to_friend_group)
+print ('dict_user_to_friend_group', dict_user_to_friend_group)
 print ('')
 
 # AGAIN, IT IS IMPORTANT TO NOTE: These two dictionaries will be the same (because friendships go both ways)
-dict_friend_to_user_group = dict_user_to_friend_group # this one actually does something as compared to above
+# dict_friend_to_user_group = dict_user_to_friend_group # this one would actually do something here as compared to above
 
 ## Now, we have a dictionary of the users that are D degrees away from each other: dict_user_to_friend_group
 
 ## The next step is to read in the Batch and create a history for each friend group of the last CONST_T purchases
 dict_friend_group_purchase_history = {}
-def read_in_purchases(data):
-    global dict_friend_group_purchase_history
-    global dict_user_to_friend_group
-    for entry in data:
-        id1 = int(entry['id'])
-        amount = float(entry['amount'])
-        for user in dict_user_to_friend_group[id1]:
-            dict_friend_group_purchase_history.setdefault(user,[])
-            dict_friend_group_purchase_history[user].append(amount)
-            dict_friend_group_purchase_history[user] = dict_friend_group_purchase_history[user][-CONST_T:]
-    print (dict_friend_group_purchase_history)
-
-read_in_purchases(data_batch_P)
-print ('')
+for entry in data_batch_P:
+    id1 = int(entry['id'])
+    amount = float(entry['amount'])
+    for user in dict_user_to_friend_group[id1]:
+        dict_friend_group_purchase_history.setdefault(user,[])
+        dict_friend_group_purchase_history[user].append(amount)
+        dict_friend_group_purchase_history[user] = dict_friend_group_purchase_history[user][-CONST_T:]
+##print (dict_friend_group_purchase_history)
+##print ('')
 
 # create an empty output file
 # from: https://stackoverflow.com/questions/12654772/create-empty-file-using-python
@@ -229,7 +210,7 @@ with open(sys.argv[2]) as json_in_file:
 
                 # get that friend's purchase history and calc the mean and SD
                 tmpList = dict_friend_group_purchase_history[friend]
-                print (tmpList)
+##                print (tmpList)
                 if len(tmpList) > 0:
                     data_mean = calc_mean(tmpList)
                     data_SD = calc_SD(tmpList, data_mean)
