@@ -58,9 +58,6 @@ def calc_SD(data, mean):
 # Read in the Batch JSON file
 # from: https://stackoverflow.com/questions/12451431/loading-and-parsing-a-json-file-with-multiple-json-objects-in-python
 data_batch_P = [] ## list of dictionaries
-##data_batch_L1 = {} ## dictionary
-##data_batch_F = [] ## list of dictionaries
-##data_batch = [] ## list of dictionaries
 
 # Create a dictionary where key is userID, and each value is a linked list of 1st degree friends
 dict_user_to_friend = {}
@@ -80,7 +77,7 @@ with open(sys.argv[1]) as json_in_file:
             # make sure the users exist
             dict_user_to_friend.setdefault(id1,[])
             dict_user_to_friend.setdefault(id2,[])
-##            dict_user_to_friend.setdefault(id1,[id1])
+##            dict_user_to_friend.setdefault(id1,[id1]) ## These lines are commented out so that user B is not in user B's social network
 ##            dict_user_to_friend.setdefault(id2,[id2])
             # add them to the dictionary
             dict_user_to_friend[id1].append(id2)
@@ -144,7 +141,7 @@ def update_friend_groups():
     for user in dict_user_to_friend.iterkeys():
         dict_user_to_friend_group.setdefault(user,[])
         friend_list = get_friends(user)
-##        visited_users = [user]
+##        visited_users = [user] ## This line is commented out so that B is included in B's social-network-purchase-average
         visited_users = []
         curDegree = 1
         # create a friends group, go while there are still friends to explore
@@ -246,157 +243,3 @@ with open(sys.argv[2]) as json_in_file:
 
     print (dict_friend_group_purchase_history)
         
-##read_in_purchases_and_check_for_anomolies(data_stream)
-
-##
-##purchase_list = {}
-##def recalculate_purchase_lists():
-##    global purchase_list
-##    global dict_user_to_friend
-##    global CONST_T
-##    global CONST_D
-##    
-##    # for each user
-##    for user in dict_user_to_friend.iterkeys():
-##        purchase_list[user] = {}
-##        friend_list = get_friends(user)
-##        visited_users = []
-##        curDegree = 1
-##        # create a friends group
-##        while len(friend_list) > 0:
-##            # loop through for each friend of the user
-##            for friend in friend_list:
-##                # if its a friend we've already visited, skip to next friend, (and remove from the list as below)
-##                if visited_users.count(friend) > 0:
-##                    friend_list.remove(friend)
-##                    continue
-##                # loop through all of the purchases of that friend
-##                for each_purchase in get_purchases(friend):
-##                    ## HERE is where we have to add the purchases WITH the purchase date
-##                    #  so that we can order them (order purchase_list) by purchase date
-##                    #  and keep only the 50 most recent
-##                    purchase_list[user][:].append(each_purchase)
-##                    print (purchase_list[user])
-##                    ## HERE we keep only the 50 most recent
-##                    purchase_list[user] = purchase_list[user][-CONST_T:]
-##                # if we're not at the max degrees then go one level deeper, by adding the friends of this friend to the friend_list
-##                if curDegree < CONST_D:
-##                    friend_list.extend(get_friends(friend))
-##                # remove this friend from the friend_list - we started with a friend list of the user, and the next loop step will
-##                #   have all of the friends of friends 1 degree away (next loop with be degree 3 etc
-##                friend_list.remove(friend)
-##                visited_users.append(friend)
-##            curDegree += 1
-##
-### update the list of purchases per each friend group (AKA do that code right above)
-##recalculate_purchase_lists()
-
-#################################################################################################################################
-# Above code created a purchase_list dictionary, where the key is the user
-#  and the value is a list of purchases calculated for the friend group of degree D
-#
-# Below will read in the Stream file and look for anomolies
-######
-
-##def calc_outstanding_purchases_with_amount(user, amount):
-##    ## now that we have purchase lists, we can calc the means and SD
-##    if len(purchase_list) > 0:
-##        data_mean = calc_mean(purchase_list[user])
-##        data_SD = calc_SD(purchase_list[user], data_mean)
-##        if data_SD == -1:
-##            return -1
-##        if amount > data_mean + data_SD * 3:
-##            return [amount, data_mean, data_SD]
-##    return -1
-##
-##def calc_outstanding_purchases(user):
-##    ## now that we have purchase lists, we can calc the means and SD
-##    if len(purchase_list) > 0:
-##        data_mean = calc_mean(purchase_list[user])
-##        data_SD = calc_SD(purchase_list[user], data_mean)
-##        if data_SD == -1:
-##            return -1
-##        for entry in purchase_list:
-##            if entry > data_mean + data_SD * 3:
-##                return [entry, data_mean, data_SD]
-##    return -1
-
-
-### start reading the steam file
-##for entry in data_stream:
-##    if 'event_type' in entry:
-##        if entry.get('event_type') == 'purchase': ## equivalent lines: "entry['event_type']" and "entry.get('event_type')" 
-##            id1 = int(entry['id'])
-##            dict_user_to_purchase.setdefault(id1,[])
-##            dict_user_to_friend.setdefault(id1,[])
-##
-##            [a,b,c] = calc_outstanding_purchases_with_amount(id1, float(entry['amount']))
-##            if a != -1: # -1 if not anomoly, otherwise it returns the amount
-##                with open(sys.argv[3], 'a') as outfile:
-##                    ## Force the order with an ordered dictionary - just passing the dictionary gives wrong order
-##                    tmpOut_dict = OrderedDict([('event_type',entry.get('event_type')), ('timestamp',entry.get('timestamp')), ('id',entry.get('id')), ('amount',entry.get('amount')), ('mean',str("{0:.2f}".format(b))), ('sd',str("{0:.2f}".format(c)))])
-##                    json.dump(tmpOut_dict, outfile)
-##            
-##            dict_user_to_purchase[id1].append(float(entry['amount']))
-##            data_batch_P.append(entry)
-##            
-##            # recalculate the purchase lists for each friend group - two purchases could come in and we have to recalculate for each
-##            # this is below as we don't want the new purchase to affect the mean, sd
-##            recalculate_purchase_lists()
-##                    
-##            
-##        elif entry['event_type'] == 'befriend':
-##            # first make sure the users exist
-##            dict_user_to_friend.setdefault(id1,[])
-##            dict_user_to_friend.setdefault(id2,[])
-##            dict_user_to_purchase.setdefault(id1,[])
-##            dict_user_to_purchase.setdefault(id2,[])
-##            # make friend group modifications
-##            dict_user_to_friend[id1].append(id2)
-##            dict_user_to_friend[id2].append(id1)
-##            data_batch_F.append(entry)
-##        
-##            # recalculate the purchase lists for each friend group - two purchases could come in and we have to recalculate for each
-##            recalculate_purchase_lists()
-##            
-##            [a,b,c] = calc_outstanding_purchases(id1)
-##            if a != -1: # -1 if not anomoly, otherwise it returns the entry
-##                with open(sys.argv[3], 'a') as outfile:
-##                    ## Force the order with an ordered dictionary - just passing the dictionary gives wrong order
-##                    tmpOut_dict = OrderedDict([('event_type',entry.get('event_type')), ('timestamp',entry.get('timestamp')), ('id',entry.get('id')), ('amount',entry.get('amount')), ('mean',str("{0:.2f}".format(b))), ('sd',str("{0:.2f}".format(c)))])
-##                    json.dump(entry, outfile)
-##                    
-##            [a,b,c] = calc_outstanding_purchases(id2)
-##            if a != -1: # -1 if not anomoly, otherwise it returns the entry
-##                with open(sys.argv[3], 'a') as outfile:
-##                    ## Force the order with an ordered dictionary - just passing the dictionary gives wrong order
-##                    tmpOut_dict = OrderedDict([('event_type',entry.get('event_type')), ('timestamp',entry.get('timestamp')), ('id',entry.get('id')), ('amount',entry.get('amount')), ('mean',str("{0:.2f}".format(b))), ('sd',str("{0:.2f}".format(c)))])
-##                    json.dump(entry, outfile)
-##
-##        elif entry['event_type'] == 'unfriend':
-##            # make friend group modifications
-##            try:
-##                dict_user_to_friend[id1].remove(id2)
-##                dict_user_to_friend[id2].remove(id1)
-##                data_batch_F.append(entry)
-##            except:
-##                print ('Dangnabbit! Yer stream file tried to remove a user not in the database! (process_log.py line ~365)')
-##                
-##            # recalculate the purchase lists for each friend group - two purchases could come in and we have to recalculate for each
-##            recalculate_purchase_lists()
-##            [a,b,c] = calc_outstanding_purchases(id1)
-##            if a != -1: # -1 if not anomoly, otherwise it returns the entry
-##                with open(sys.argv[3], 'a') as outfile:
-##                    ## Force the order with an ordered dictionary - just passing the dictionary gives wrong order
-##                    tmpOut_dict = OrderedDict([('event_type',entry.get('event_type')), ('timestamp',entry.get('timestamp')), ('id',entry.get('id')), ('amount',entry.get('amount')), ('mean',str("{0:.2f}".format(b))), ('sd',str("{0:.2f}".format(c)))])
-##                    json.dump(entry, outfile)
-##            [a,b,c] = calc_outstanding_purchases(id2)
-##            if a != -1: # -1 if not anomoly, otherwise it returns the entry
-##                with open(sys.argv[3], 'a') as outfile:
-##                    ## Force the order with an ordered dictionary - just passing the dictionary gives wrong order
-##                    tmpOut_dict = OrderedDict([('event_type',entry.get('event_type')), ('timestamp',entry.get('timestamp')), ('id',entry.get('id')), ('amount',entry.get('amount')), ('mean',str("{0:.2f}".format(b))), ('sd',str("{0:.2f}".format(c)))])
-##                    json.dump(entry, outfile)
-##            
-##    elif 'T' in entry:
-##        data_batch_L1.update(entry)
-
